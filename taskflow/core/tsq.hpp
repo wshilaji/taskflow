@@ -56,8 +56,8 @@ class UnboundedTaskQueue {
 
   struct Array {
 
-    int64_t C;
-    int64_t M;
+    int64_t C; //容量
+    int64_t M; // 掩码
     std::atomic<T>* S;
 
     explicit Array(int64_t c) :
@@ -65,6 +65,7 @@ class UnboundedTaskQueue {
       M {c-1},
       S {new std::atomic<T>[static_cast<size_t>(C)]} {
     }
+    // 环形缓存的实现 用16 mask 16-1 0x1111这样比 % 实现快
 
     ~Array() {
       delete [] S;
@@ -79,9 +80,10 @@ class UnboundedTaskQueue {
     }
 
     T pop(int64_t i) noexcept {
-      return S[i & M].load(std::memory_order_relaxed);
+      return S[i & M].load(std::memory_order_relaxed); // dysNote这里如果T是int 或者T , 不要真的删除或置0 ，因为push会覆盖
     }
 
+    // new一个更大的
     Array* resize(int64_t b, int64_t t) {
       Array* ptr = new Array {2*C};
       for(int64_t i=t; i!=b; ++i) {
@@ -188,7 +190,7 @@ UnboundedTaskQueue<T>::~UnboundedTaskQueue() {
   for(auto a : _garbage) {
     delete a;
   }
-  delete _array.load();
+  delete _array.load(); //获取指针 析构
 }
 
 // Function: empty
@@ -212,8 +214,8 @@ template <typename T>
 void UnboundedTaskQueue<T>::push(T o) {
 
   int64_t b = _bottom.load(std::memory_order_relaxed);
-  int64_t t = _top.load(std::memory_order_acquire);
-  Array* a = _array.load(std::memory_order_relaxed);
+  int64_t t = _top.load(std::memory_order_acquire);  // dysNote注意这里为acquire 后面的不能放到前面 releas是前面的不能放到后面 写不能放到后面
+  Array* a = _array.load(std::memory_order_relaxed); // 这里是读， 读不前
 
   // queue is full with one additional item (b-t+1)
   if TF_UNLIKELY(a->capacity() - 1 < (b - t)) {
@@ -221,7 +223,7 @@ void UnboundedTaskQueue<T>::push(T o) {
   }
 
   a->push(b, o);
-  std::atomic_thread_fence(std::memory_order_release);
+  std::atomic_thread_fence(std::memory_order_release);  // a->push不能放到后面
 
   // original paper uses relaxed here but tsa complains
   _bottom.store(b + 1, std::memory_order_release);
@@ -250,17 +252,25 @@ T UnboundedTaskQueue<T>::pop() {
       }
       _bottom.store(b + 1, std::memory_order_relaxed);
     }
+    // dysNote 这里 一个队列  1|2|3|4|5|6 注意这里Array里面并不会真的pop出去，而是通过push覆盖的逻辑
+    // 所以这里 如果top = 2 , bottom是4的时候， bottom是待插入点。 看代码逻辑 .bottom- 1才是真的最后一个元素
+    // 如果 top = 2 bottom = 3 这个时候 最后一个元素是bottom = 1 是2 。所以top = bottom - 1
+    // 这个时候bottom继续 _bottom.store(b + 1)  是3， 然后2这个top其实Array里是有值的。然后将top +1 = 3 ,至于
+    // 第二个位置等待push将他覆盖
   }
   else {
     _bottom.store(b + 1, std::memory_order_relaxed);
   }
 
   return item;
+  // dysNote CAS的基本形式是：CAS(addr,old,new),当addr中存放的值等于old时，用new对其替换
+  // C++ style compare_exchange_strong (T& expected, T val, memory_order sync = memory_order_seq_cst)
+  // memory_order_acq_rel只能限制与原子操作相关的变量 。限制不了非原子操作的变量
 }
 
 // Function: steal
 template <typename T>
-T UnboundedTaskQueue<T>::steal() {
+T UnboundedTaskQueue<T>::steal() { // 上面那个pop是从_bottom pop掉。这个是从_top中pop    我靠我还以为是个栈
   
   int64_t t = _top.load(std::memory_order_acquire);
   std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -269,7 +279,7 @@ T UnboundedTaskQueue<T>::steal() {
   T item {nullptr};
 
   if(t < b) {
-    Array* a = _array.load(std::memory_order_consume);
+    Array* a = _array.load(std::memory_order_consume); // 等价与accquire 也是后面的不能放到前面  但是比accquire好的是 只限制了与该变量相关的不得前
     item = a->pop(t);
     if(!_top.compare_exchange_strong(t, t+1,
                                      std::memory_order_seq_cst,
@@ -535,6 +545,15 @@ T BoundedTaskQueue<T, LogSize>::pop() {
   else {
     _bottom.store(b + 1, std::memory_order_relaxed);
   }
+  /* 为什么不用while 和weak呢 
+   void NamingCache::DelayReleaseNode(Node* node) {
+      auto* head = delayed_release_node_list_.load(std::memory_order_relaxed);
+      node->next = head;
+      while (!delayed_release_node_list_.compare_exchange_weak(
+          node->next, node, std::memory_order_release, std::memory_order_acquire))
+        ;
+    }
+   * */
 
   return item;
 }

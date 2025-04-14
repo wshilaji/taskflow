@@ -10,6 +10,11 @@
 
 Taskflow helps you quickly write parallel and heterogeneous task programs in modern C++
 
+dysNote : 要将其代码中的任务依赖关系可视化（生成图片），可以参考 [Taskflow Visualizer](https://github.com/taskflow/taskflow-visualizer)
+TaskFlow 内置可视化（.dump() 方法）
+TaskFlow 提供 .dump() 方法，可以直接将任务图导出为 DOT 格式（Graphviz 兼容），然后用工具渲染成图片。
+安装 Graphviz 后，使用  dot -Tpng taskflow.dot -o taskflow.png   https://taskflow.github.io/taskflow/
+
 # Why Taskflow?
 
 Taskflow is faster, more expressive, and easier for drop-in integration

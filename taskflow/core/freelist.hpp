@@ -29,8 +29,10 @@ class Freelist {
   TF_FORCE_INLINE void push(T item) {
     auto b = reinterpret_cast<uintptr_t>(item) % _buckets.size();
     std::scoped_lock lock(_buckets[b].mutex);
-    _buckets[b].queue.push(item);
+    _buckets[b].queue.push(item); // dysNote 我去。 这里都分段锁了，queue里面各种原子变量有啥意义
   }
+  //  //UnboundedTaskQueue<Node*> _wsq;难道老版本是用的这个
+  // Freelist<Node*> _freelist; 
 
   TF_FORCE_INLINE T steal(size_t w) {
     return _buckets[w].queue.steal();
@@ -46,7 +48,7 @@ class Freelist {
 
   private:
   
-  std::vector<Bucket> _buckets;
+  std::vector<Bucket> _buckets; // buckets
 };
 
 
