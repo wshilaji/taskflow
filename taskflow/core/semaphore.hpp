@@ -63,7 +63,8 @@ However, this example has a semaphore with initial count 1,
 and all tasks need to acquire that semaphore before running and release that
 semaphore after they are done.
 This arrangement limits the number of concurrently running tasks to only one.
-
+为什么不直接用 std::counting_semaphore<MAX_RESOURCES> semaphore(MAX_RESOURCES); // 初始化信号量 semaphore.acquire();  semaphore.release();
+或者sem_t semaphore;sem_wait(&semaphore); sem_post(&semaphore); 
 */
 class Semaphore {
 
@@ -185,4 +186,36 @@ inline void Semaphore::reset(size_t new_max_value) {
 }
 
 }  // end of namespace tf. ---------------------------------------------------
+/*
+void* access_resource(void* thread_id) {
+    int id = *((int*)thread_id);
+    printf("Thread %d is trying to access the resource.\n", id);
+    // 等待信号量
+    sem_wait(&semaphore);
+    printf("Thread %d has accessed the resource.\n", id);
+    // 模拟对资源的使用
+    sleep(1);
+    printf("Thread %d is releasing the resource.\n", id);
+    // 释放信号量
+    sem_post(&semaphore);
+    return NULL;
+}
 
+int main() {
+    pthread_t threads[NUM_THREADS];
+    int thread_ids[NUM_THREADS];
+    int MAX_RESOURCES = 3;
+    // 初始化信号量
+    sem_init(&semaphore, 0, MAX_RESOURCES);
+    // 创建多个线程
+    for (int i = 0; i < NUM_THREADS; i++) {
+        thread_ids[i] = i;
+        pthread_create(&threads[i], NULL, access_resource, (void*)&thread_ids[i]);
+    }
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    sem_destroy(&semaphore);
+    return 0;
+}
+*/

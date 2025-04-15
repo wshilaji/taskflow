@@ -48,7 +48,7 @@ class to interact with the executor through taskflow composition.
 
 A graph object is move-only.
 */
-class Graph : public std::vector<std::unique_ptr<Node>> {
+class Graph : public std::vector<std::unique_ptr<Node>> { //dysNote Graph是vector<Node*>>  用的是这种组织方式
 
   friend class Node;
   friend class FlowBuilder;
@@ -264,7 +264,7 @@ class Node {
     DependentAsync    // dependent async tasking
   >;
 
-  struct Semaphores {
+  struct Semaphores { // 信号量
     SmallVector<Semaphore*> to_acquire;
     SmallVector<Semaphore*> to_release;
   };
@@ -310,8 +310,8 @@ class Node {
   Topology* _topology {nullptr};
   Node* _parent {nullptr};
 
-  size_t _num_successors {0};
-  SmallVector<Node*, 4> _edges;
+  size_t _num_successors {0}; //继任者数量
+  SmallVector<Node*, 4> _edges; // dysNote  这是边
 
   std::atomic<size_t> _join_counter {0};
   
@@ -483,7 +483,7 @@ Node::Node(
   _handle       {std::forward<Args>(args)...} {
 }
 
-// Procedure: _precede
+// Procedure: _precede    这个edges布局方式这么骚 前面几个是后驱 后面几个是依赖结点
 /*
 u successor   layout: s1, s2, s3, p1, p2 (num_successors = 3)
 v predecessor layout: s1, p1, p2
@@ -506,7 +506,7 @@ inline void Node::_remove_successors(Node* node) {
   auto sit = std::remove(_edges.begin(), _edges.begin() + _num_successors, node);
   size_t new_num_successors = std::distance(_edges.begin(), sit);
   std::move(_edges.begin() + _num_successors, _edges.end(), sit);
-  _edges.resize(_edges.size() - (_num_successors - new_num_successors));
+  _edges.resize(_edges.size() - (_num_successors - new_num_successors)); // _edges 中剩余的依赖边p1 ,. p2   
   _num_successors = new_num_successors;
 }
 
