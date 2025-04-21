@@ -221,6 +221,7 @@ class Node {
     Module(T&);
 
     Graph& graph;
+    // dysNote 注意Module和Subflow都有个Graph的变量 ，但是Module少 std::function<void()>work;
   };
 
   // Async work

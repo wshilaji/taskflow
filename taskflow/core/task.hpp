@@ -408,6 +408,7 @@ Task& Task::succeed(Ts&&... tasks) {
 // Function: composed_of
 template <typename T>
 Task& Task::composed_of(T& object) {
+    //  "A composed of B" 中，通常表示 A 是由 B 组成的
   _node->_handle.emplace<Node::Module>(object);
   return *this;
 }

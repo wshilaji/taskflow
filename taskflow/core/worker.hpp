@@ -125,8 +125,8 @@ namespace pt {
 /**
 @private
 */
-inline thread_local Worker* this_worker {nullptr};
-
+inline thread_local Worker* this_worker {nullptr}; //和bthread一样。 这个是自己实现了携程吧
+                                                   ////https://zhuanlan.zhihu.com/p/294129746
 }
 
 // ----------------------------------------------------------------------------

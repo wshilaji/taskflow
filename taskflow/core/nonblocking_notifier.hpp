@@ -197,15 +197,15 @@ class NonblockingNotifierV1 {
   // - next kWaiterBits is count of waiters in prewait state.
   // - next kEpochBits is modification counter.
   static const uint64_t kStackBits = 16;
-  static const uint64_t kStackMask = (1ull << kStackBits) - 1;
+  static const uint64_t kStackMask = (1ull << kStackBits) - 1; //00000000000000001111111111111111
   static const uint64_t kWaiterBits = 16;
   static const uint64_t kWaiterShift = 16;
   static const uint64_t kWaiterMask = ((1ull << kWaiterBits) - 1)
-                                      << kWaiterShift;
+                                      << kWaiterShift; // 11111111111111110000000000000000
   static const uint64_t kWaiterInc = 1ull << kWaiterBits;
   static const uint64_t kEpochBits = 32;
   static const uint64_t kEpochShift = 32;
-  static const uint64_t kEpochMask = ((1ull << kEpochBits) - 1) << kEpochShift;
+  static const uint64_t kEpochMask = ((1ull << kEpochBits) - 1) << kEpochShift; // 1111111111111111111111111111111100000000000000000000000000000000
   static const uint64_t kEpochInc = 1ull << kEpochShift;
   std::atomic<uint64_t> _state;
   std::vector<Waiter> _waiters;
@@ -551,3 +551,39 @@ class NonblockingNotifierV2 {
 
 }  // namespace tf ------------------------------------------------------------
 
+/*
+p0:
+   wants_to_enter[0] ← true
+   while wants_to_enter[1] {
+      if turn ≠ 0 {
+         wants_to_enter[0] ← false
+         while turn ≠ 0 {
+           // busy wait
+         }
+         wants_to_enter[0] ← true
+      }
+   }
+
+   // critical section
+   ...
+   turn ← 1
+   wants_to_enter[0] ← false
+   // remainder section
+p1:
+   wants_to_enter[1] ← true
+   while wants_to_enter[0] {
+      if turn ≠ 1 {
+         wants_to_enter[1] ← false
+         while turn ≠ 1 {
+           // busy wait
+         }
+         wants_to_enter[1] ← true
+      }
+   }
+
+   // critical section
+   ...
+   turn ← 0
+   wants_to_enter[1] ← false
+   // remainder section
+ * */

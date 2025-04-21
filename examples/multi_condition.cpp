@@ -23,6 +23,7 @@ int main() {
   auto D = taskflow.emplace([&](){ std::cout << "D\n"; }).name("D");
 
   A.precede(B, C, D);
+  // A 返回{0, 2}时， 只会执行B和D  如果要执行C得返回{0,1, 2}
 
   // visualizes the taskflow
   taskflow.dump(std::cout);

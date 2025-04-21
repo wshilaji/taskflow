@@ -52,7 +52,7 @@ int main() {
 
   A.precede(B);
   B.precede(C);
-  C.precede(B);
+  C.precede(B); // 如果c return 0 . 走b，。 如果返回1 走d
   C.precede(D);
 
   // visualizes the taskflow

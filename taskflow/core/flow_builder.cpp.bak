@@ -29,16 +29,50 @@ class FlowBuilder {
   @brief constructs a flow builder with a graph
   */
   FlowBuilder(Graph& graph);
+  /* std::函数声明
+    template<bool B, class T = void>
+    struct enable_if {};//  B 为 true，enable_if 将定义一个名为 type 的类型别名，反之则为空
 
-  template <typename C,
-    std::enable_if_t<is_static_task_v<C>, void>* = nullptr
-  >
+    template<typename T>
+    typename std::enable_if<std::is_integral<T>::value, T>::type
+    Add(T a, T b);
+    template<typename T>
+    typename std::enable_if<!std::is_integral<T>::value, T>::type
+    Add(T a, T b);
+
+    std::enable_if_t 是 std::enable_if 的简化写法，等价于 typename std::enable_if<B, T>::type
+    template<typename T>
+    std::enable_if_t<std::is_integral_v<T>, T> myFunction(T value) {
+        return value * 2; // 仅在 T 是整数类型时可用
+    }
+    
+    template <typename C> constexpr bool is_condition_task_v = std::is_invocable_r_v<int, C>;
+    std::is_invocable_r:这是一个类型特征，用于检查给定的可调用对象（如函数、函数指针、lambda 等）是否可以被调用，且其返回类型符合指定类型。std::is_invocable_r_v简化
+    void func() {}
+    int func_with_return() { return 42;  }
+    template <typename C>
+    void check_invocable() {
+        if constexpr (std::is_invocable_r_v<int, C>) { //<A, C>  A是是C是否返回的类型可以转换成A , C是一个func或函数指针是否可以被调用就是是一个函数
+            std::cout << "C is invocable and returns int.\n";
+        } else {
+            std::cout << "C is not invocable or does not return int.\n";
+        }
+    }
+    check_invocable<void(*)()>(); // 输出: C is not invocable or does not return int.
+    check_invocable<decltype(func_with_return)>(); // 输出: C is invocable and returns int.
+   * */
+
+  template <typename C, std::enable_if_t<is_static_task_v<C>, void>* = nullptr >
   Task emplace(C&& callable);
   
   template <typename C,
     std::enable_if_t<is_runtime_task_v<C>, void>* = nullptr
   >
-  Task emplace(C&& callable);
+  Task emplace(C&& callable);  // 模版上 <>*= nullptr模板参数是一个指针类型的默认参数，默认为 nullptr 
+    // std::is_invocable_r_v<void, C, Runtime&>:
+    //std::is_invocable_r 是一个类型特征，用于检查给定的可调用对象 C 是否可以被调用，并且其返回类型是否可以转换为 void。
+    //void 是期望的返回类型。
+    //Runtime& 是 C 被调用时所需的参数类型。
 
   template <typename C,
     std::enable_if_t<is_subflow_task_v<C>, void>* = nullptr
@@ -92,6 +126,28 @@ class FlowBuilder {
   
   template <typename B, typename E, typename T, typename O, typename P = DefaultPartitioner>
   Task reduce(B first, E last, T& init, O bop, P part = P());
+  /* example parallel_reduce.cpp 如果数字小还不如不用 当数字大到一定程度的时候在用
+(manage:hm) root@shjd-sycpb-public-03::dys:~/taskflow/build/examples# ./parallel_reduce reduce 1000
+Benchmark: reduce
+[sequential] reduce: 0 us
+[taskflow] reduce: 2761 us
+(manage:hm) root@shjd-sycpb-public-03::dys:~/taskflow/build/examples# ./parallel_reduce reduce 100000
+Benchmark: reduce
+[sequential] reduce: 30 us
+[taskflow] reduce: 3172 us
+(manage:hm) root@shjd-sycpb-public-03::dys:~/taskflow/build/examples# ./parallel_reduce reduce 1000000
+Benchmark: reduce
+[sequential] reduce: 346 us
+[taskflow] reduce: 4136 us
+(manage:hm) root@shjd-sycpb-public-03::dys:~/taskflow/build/examples# ./parallel_reduce reduce 10000000
+Benchmark: reduce
+[sequential] reduce: 3911 us
+[taskflow] reduce: 4045 us
+(manage:hm) root@shjd-sycpb-public-03::dys:~/taskflow/build/examples# ./parallel_reduce reduce 100000000
+Benchmark: reduce
+[sequential] reduce: 39221 us
+[taskflow] reduce: 12183 us
+*/
 
   template <typename R, typename T, typename L, typename G, typename P = DefaultPartitioner>
   Task reduce_by_index(R range, T& init, L lop, G gop, P part = P());
@@ -172,6 +228,9 @@ Task FlowBuilder::emplace(C&& c) {
     std::in_place_type_t<Node::Static>{}, std::forward<C>(c)
   ));
 }
+// std::in_place_type_t 是 C++ 标准库中的一个类型，用于支持“就地构造”（in-place construction）的功能。
+// 它主要与 std::optional 和 std::variant 等类型结合使用，以便在构造这些类型的对象时，能够直接在目标存储空间中构造所需的对象，而不需要额外的临时对象。
+// std::variant<int, std::string> myVariant{std::in_place_type<std::string>, "Hello, World!"};
 
 // Function: emplace
 template <typename C, std::enable_if_t<is_runtime_task_v<C>, void>*>
@@ -235,12 +294,12 @@ inline void FlowBuilder::erase(Task task) {
     return;
   }
 
-  // remove task from its successors' predecessor list
+  // 要erase 结点边里面 要反着remove 如果该结点是边对面结点的前驱， 要删掉对面结点的predecesor 
   for(size_t i=0; i<task._node->_num_successors; ++i) {
     task._node->_edges[i]->_remove_predecessors(task._node);
   }
 
-  // remove task from its precedessors' successor list
+  // 要erase 结点边里面 要反着remove 如果该结点是边对面结点的后驱， 要删掉对面结点的后继 
   for(size_t i=task._node->_num_successors; i<task._node->_edges.size(); ++i) {
     task._node->_edges[i]->_remove_successors(task._node);
   }
