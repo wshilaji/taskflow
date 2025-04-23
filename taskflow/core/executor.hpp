@@ -5,51 +5,9 @@
 #include "async_task.hpp"
 #include "freelist.hpp"
 
-/**
-@file executor.hpp
-@brief executor include file
-*/
 
 namespace tf {
 
-// ----------------------------------------------------------------------------
-// Executor Definition
-// ----------------------------------------------------------------------------
-
-/** 
-@class Executor
-
-@brief class to create an executor 
-
-An executor manages a set of worker threads to run one or multiple taskflows
-using an efficient work-stealing scheduling algorithm.
-
-@code{.cpp}
-// Declare an executor and a taskflow
-tf::Executor executor;
-tf::Taskflow taskflow;
-
-// Add three tasks into the taskflow
-tf::Task A = taskflow.emplace([] () { std::cout << "This is TaskA\n"; });
-tf::Task B = taskflow.emplace([] () { std::cout << "This is TaskB\n"; });
-tf::Task C = taskflow.emplace([] () { std::cout << "This is TaskC\n"; });
-
-// Build precedence between tasks
-A.precede(B, C);
-
-tf::Future<void> fu = executor.run(taskflow);
-fu.wait();                // block until the execution completes
-
-executor.run(taskflow, [](){ std::cout << "end of 1 run"; }).wait();
-executor.run_n(taskflow, 4);
-executor.wait_for_all();  // block until all associated executions finish
-executor.run_n(taskflow, 4, [](){ std::cout << "end of 4 runs"; }).wait();
-executor.run_until(taskflow, [cnt=0] () mutable { return ++cnt == 10; });
-@endcode
-
-All the @c run methods are @em thread-safe. You can submit multiple
-taskflows at the same time to an executor from different threads.
-*/
 class Executor {
 
   friend class FlowBuilder;
@@ -79,514 +37,62 @@ class Executor {
     std::shared_ptr<WorkerInterface> wix = nullptr
   );
 
-  /**
-  @brief destructs the executor
-
-  The destructor calls Executor::wait_for_all to wait for all submitted
-  taskflows to complete and then notifies all worker threads to stop
-  and join these threads.
-  */
   ~Executor();
 
-  /**
-  @brief runs a taskflow once
-
-  @param taskflow a tf::Taskflow object
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes the given taskflow once and returns a tf::Future
-  object that eventually holds the result of the execution.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run(taskflow);
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-
-  @attention
-  The executor does not own the given taskflow. It is your responsibility to
-  ensure the taskflow remains alive during its execution.
-  */
   tf::Future<void> run(Taskflow& taskflow);
 
-  /**
-  @brief runs a moved taskflow once
-
-  @param taskflow a moved tf::Taskflow object
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes a moved taskflow once and returns a tf::Future
-  object that eventually holds the result of the execution.
-  The executor will take care of the lifetime of the moved taskflow.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run(std::move(taskflow));
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-  */
   tf::Future<void> run(Taskflow&& taskflow);
 
-  /**
-  @brief runs a taskflow once and invoke a callback upon completion
-
-  @param taskflow a tf::Taskflow object
-  @param callable a callable object to be invoked after this run
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes the given taskflow once and invokes the given
-  callable when the execution completes.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run(taskflow, [](){ std::cout << "done"; });
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-
-  @attention
-  The executor does not own the given taskflow. It is your responsibility to
-  ensure the taskflow remains alive during its execution.
-  */
   template<typename C>
   tf::Future<void> run(Taskflow& taskflow, C&& callable);
 
-  /**
-  @brief runs a moved taskflow once and invoke a callback upon completion
-
-  @param taskflow a moved tf::Taskflow object
-  @param callable a callable object to be invoked after this run
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes a moved taskflow once and invokes the given
-  callable when the execution completes.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-  The executor will take care of the lifetime of the moved taskflow.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run(
-    std::move(taskflow), [](){ std::cout << "done"; }
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template<typename C>
   tf::Future<void> run(Taskflow&& taskflow, C&& callable);
 
-  /**
-  @brief runs a taskflow for @c N times
-
-  @param taskflow a tf::Taskflow object
-  @param N number of runs
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes the given taskflow @c N times and returns a tf::Future
-  object that eventually holds the result of the execution.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run_n(taskflow, 2);  // run taskflow 2 times
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-
-  @attention
-  The executor does not own the given taskflow. It is your responsibility to
-  ensure the taskflow remains alive during its execution.
-  */
   tf::Future<void> run_n(Taskflow& taskflow, size_t N);
 
-  /**
-  @brief runs a moved taskflow for @c N times
-
-  @param taskflow a moved tf::Taskflow object
-  @param N number of runs
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes a moved taskflow @c N times and returns a tf::Future
-  object that eventually holds the result of the execution.
-  The executor will take care of the lifetime of the moved taskflow.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run_n(
-    std::move(taskflow), 2    // run the moved taskflow 2 times
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-  */
   tf::Future<void> run_n(Taskflow&& taskflow, size_t N);
 
-  /**
-  @brief runs a taskflow for @c N times and then invokes a callback
-
-  @param taskflow a tf::Taskflow
-  @param N number of runs
-  @param callable a callable object to be invoked after this run
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes the given taskflow @c N times and invokes the given
-  callable when the execution completes.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run(
-    taskflow, 2, [](){ std::cout << "done"; }  // runs taskflow 2 times and invoke
-                                               // the lambda to print "done"
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-
-  @attention
-  The executor does not own the given taskflow. It is your responsibility to
-  ensure the taskflow remains alive during its execution.
-  */
   template<typename C>
   tf::Future<void> run_n(Taskflow& taskflow, size_t N, C&& callable);
 
-  /**
-  @brief runs a moved taskflow for @c N times and then invokes a callback
-
-  @param taskflow a moved tf::Taskflow
-  @param N number of runs
-  @param callable a callable object to be invoked after this run
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes a moved taskflow @c N times and invokes the given
-  callable when the execution completes.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run_n(
-    // run the moved taskflow 2 times and invoke the lambda to print "done"
-    std::move(taskflow), 2, [](){ std::cout << "done"; }
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template<typename C>
   tf::Future<void> run_n(Taskflow&& taskflow, size_t N, C&& callable);
 
-  /**
-  @brief runs a taskflow multiple times until the predicate becomes true
-
-  @param taskflow a tf::Taskflow
-  @param pred a boolean predicate to return @c true for stop
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes the given taskflow multiple times until
-  the predicate returns @c true.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run_until(
-    taskflow, [](){ return rand()%10 == 0 }
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-
-  @attention
-  The executor does not own the given taskflow. It is your responsibility to
-  ensure the taskflow remains alive during its execution.
-  */
   template<typename P>
   tf::Future<void> run_until(Taskflow& taskflow, P&& pred);
 
-  /**
-  @brief runs a moved taskflow and keeps running it
-         until the predicate becomes true
-
-  @param taskflow a moved tf::Taskflow object
-  @param pred a boolean predicate to return @c true for stop
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes a moved taskflow multiple times until
-  the predicate returns @c true.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-  The executor will take care of the lifetime of the moved taskflow.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run_until(
-    std::move(taskflow), [](){ return rand()%10 == 0 }
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template<typename P>
   tf::Future<void> run_until(Taskflow&& taskflow, P&& pred);
 
-  /**
-  @brief runs a taskflow multiple times until the predicate becomes true and
-         then invokes the callback
-
-  @param taskflow a tf::Taskflow
-  @param pred a boolean predicate to return @c true for stop
-  @param callable a callable object to be invoked after this run completes
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes the given taskflow multiple times until
-  the predicate returns @c true and then invokes the given callable when
-  the execution completes.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run_until(
-    taskflow, [](){ return rand()%10 == 0 }, [](){ std::cout << "done"; }
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-
-  @attention
-  The executor does not own the given taskflow. It is your responsibility to
-  ensure the taskflow remains alive during its execution.
-  */
   template<typename P, typename C>
   tf::Future<void> run_until(Taskflow& taskflow, P&& pred, C&& callable);
 
-  /**
-  @brief runs a moved taskflow and keeps running
-         it until the predicate becomes true and then invokes the callback
-
-  @param taskflow a moved tf::Taskflow
-  @param pred a boolean predicate to return @c true for stop
-  @param callable a callable object to be invoked after this run completes
-
-  @return a tf::Future that holds the result of the execution
-
-  This member function executes a moved taskflow multiple times until
-  the predicate returns @c true and then invokes the given callable when
-  the execution completes.
-  This member function returns a tf::Future object that
-  eventually holds the result of the execution.
-  The executor will take care of the lifetime of the moved taskflow.
-
-  @code{.cpp}
-  tf::Future<void> future = executor.run_until(
-    std::move(taskflow),
-    [](){ return rand()%10 == 0 }, [](){ std::cout << "done"; }
-  );
-  // do something else
-  future.wait();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template<typename P, typename C>
   tf::Future<void> run_until(Taskflow&& taskflow, P&& pred, C&& callable);
 
-  /**
-  @brief runs a target graph and waits until it completes using 
-         an internal worker of this executor
-  
-  @tparam T target type which has `tf::Graph& T::graph()` defined
-  @param target the target task graph object
-
-  The method runs a target graph which has `tf::Graph& T::graph()` defined 
-  and waits until the execution completes.
-  Unlike the typical flow of calling `tf::Executor::run` series 
-  plus waiting on the result, this method must be called by an internal
-  worker of this executor. The caller worker will participate in
-  the work-stealing loop of the scheduler, thereby avoiding potential
-  deadlock caused by blocked waiting.
-  
-  @code{.cpp}
-  tf::Executor executor(2);
-  tf::Taskflow taskflow;
-  std::array<tf::Taskflow, 1000> others;
-  
-  std::atomic<size_t> counter{0};
-  
-  for(size_t n=0; n<1000; n++) {
-    for(size_t i=0; i<1000; i++) {
-      others[n].emplace([&](){ counter++; });
-    }
-    taskflow.emplace([&executor, &tf=others[n]](){
-      executor.corun(tf);
-      //executor.run(tf).wait();  <- blocking the worker without doing anything
-      //                             will introduce deadlock
-    });
-  }
-  executor.run(taskflow).wait();
-  @endcode 
-
-  The method is thread-safe as long as the target is not concurrently
-  ran by two or more threads.
-
-  @attention
-  You must call tf::Executor::corun from a worker of the calling executor
-  or an exception will be thrown.
-  */
   template <typename T>
   void corun(T& target);
 
-  /**
-  @brief keeps running the work-stealing loop until the predicate becomes true
-  
-  @tparam P predicate type
-  @param predicate a boolean predicate to indicate when to stop the loop
-
-  The method keeps the caller worker running in the work-stealing loop
-  until the stop predicate becomes true.
-
-  @code{.cpp}
-  taskflow.emplace([&](){
-    std::future<void> fu = std::async([](){ std::sleep(100s); });
-    executor.corun_until([](){
-      return fu.wait_for(std::chrono::seconds(0)) == future_status::ready;
-    });
-  });
-  @endcode
-
-  @attention
-  You must call tf::Executor::corun_until from a worker of the calling executor
-  or an exception will be thrown.
-  */
   template <typename P>
   void corun_until(P&& predicate);
 
-  /**
-  @brief waits for all tasks to complete
-
-  This member function waits until all submitted tasks
-  (e.g., taskflows, asynchronous tasks) to finish.
-
-  @code{.cpp}
-  executor.run(taskflow1);
-  executor.run_n(taskflow2, 10);
-  executor.run_n(taskflow3, 100);
-  executor.wait_for_all();  // wait until the above submitted taskflows finish
-  @endcode
-  */
   void wait_for_all();
 
-  /**
-  @brief queries the number of worker threads
-
-  Each worker represents one unique thread spawned by an executor
-  upon its construction time.
-
-  @code{.cpp}
-  tf::Executor executor(4);
-  std::cout << executor.num_workers();    // 4
-  @endcode
-  */
   size_t num_workers() const noexcept;
   
   /**
   @brief queries the number of queues used in the work-stealing loop
   */
   size_t num_queues() const noexcept;
-
-  /**
-  @brief queries the number of running topologies at the time of this call
-
-  When a taskflow is submitted to an executor, a topology is created to store
-  runtime metadata of the running taskflow.
-  When the execution of the submitted taskflow finishes,
-  its corresponding topology will be removed from the executor.
-
-  @code{.cpp}
-  executor.run(taskflow);
-  std::cout << executor.num_topologies();  // 0 or 1 (taskflow still running)
-  @endcode
-  */
   size_t num_topologies() const;
-
-  /**
-  @brief queries the number of running taskflows with moved ownership
-
-  @code{.cpp}
-  executor.run(std::move(taskflow));
-  std::cout << executor.num_taskflows();  // 0 or 1 (taskflow still running)
-  @endcode
-  */
   size_t num_taskflows() const;
-  
-  /**
-  @brief queries the id of the caller thread within this executor
-
-  Each worker has an unique id in the range of @c 0 to @c N-1 associated with
-  its parent executor.
-  If the caller thread does not belong to the executor, @c -1 is returned.
-
-  @code{.cpp}
-  tf::Executor executor(4);   // 4 workers in the executor
-  executor.this_worker_id();  // -1 (main thread is not a worker)
-
-  taskflow.emplace([&](){
-    std::cout << executor.this_worker_id();  // 0, 1, 2, or 3
-  });
-  executor.run(taskflow);
-  @endcode
-  */
   int this_worker_id() const;
  
   // --------------------------------------------------------------------------
   // Observer methods
   // --------------------------------------------------------------------------
 
-  /**
-  @brief constructs an observer to inspect the activities of worker threads
-
-  @tparam Observer observer type derived from tf::ObserverInterface
-  @tparam ArgsT argument parameter pack
-
-  @param args arguments to forward to the constructor of the observer
-
-  @return a shared pointer to the created observer
-
-  Each executor manages a list of observers with shared ownership with callers.
-  For each of these observers, the two member functions,
-  tf::ObserverInterface::on_entry and tf::ObserverInterface::on_exit
-  will be called before and after the execution of a task.
-
-  This member function is not thread-safe.
-  */
   template <typename Observer, typename... ArgsT>
   std::shared_ptr<Observer> make_observer(ArgsT&&... args);
 
@@ -607,254 +113,33 @@ class Executor {
   // Async Task Methods
   // --------------------------------------------------------------------------
   
-  /**
-  @brief creates a parameterized asynchronous task to run the given function
-
-  @tparam P task parameter type
-  @tparam F callable type
-
-  @param params task parameters
-  @param func callable object
-
-  @return a @std_future that will hold the result of the execution
-  
-  The method creates a parameterized asynchronous task 
-  to run the given function and return a @std_future object 
-  that eventually will hold the result of the execution.
-
-  @code{.cpp}
-  std::future<int> future = executor.async("name", [](){
-    std::cout << "create an asynchronous task with a name and returns 1\n";
-    return 1;
-  });
-  future.get();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename P, typename F>
   auto async(P&& params, F&& func);
 
-  /**
-  @brief runs a given function asynchronously
-
-  @tparam F callable type
-
-  @param func callable object
-
-  @return a @std_future that will hold the result of the execution
-
-  The method creates an asynchronous task to run the given function
-  and return a @std_future object that eventually will hold the result
-  of the return value.
-
-  @code{.cpp}
-  std::future<int> future = executor.async([](){
-    std::cout << "create an asynchronous task and returns 1\n";
-    return 1;
-  });
-  future.get();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename F>
   auto async(F&& func);
 
-  /**
-  @brief similar to tf::Executor::async but does not return a future object
-
-  @tparam F callable type
-
-  @param params task parameters
-  @param func callable object
-
-  The method creates a parameterized asynchronous task 
-  to run the given function without returning any @std_future object.
-  This member function is more efficient than tf::Executor::async 
-  and is encouraged to use when applications do not need a @std_future to acquire
-  the result or synchronize the execution.
-
-  @code{.cpp}
-  executor.silent_async("name", [](){
-    std::cout << "create an asynchronous task with a name and no return\n";
-  });
-  executor.wait_for_all();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename P, typename F>
   void silent_async(P&& params, F&& func);
   
-  /**
-  @brief similar to tf::Executor::async but does not return a future object
-  
-  @tparam F callable type
-  
-  @param func callable object
-
-  The method creates an asynchronous task 
-  to run the given function without returning any @std_future object.
-  This member function is more efficient than tf::Executor::async 
-  and is encouraged to use when applications do not need a @std_future to acquire
-  the result or synchronize the execution.
-
-  @code{.cpp}
-  executor.silent_async([](){
-    std::cout << "create an asynchronous task with no return\n";
-  });
-  executor.wait_for_all();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename F>
   void silent_async(F&& func);
 
-  // --------------------------------------------------------------------------
-  // Silent Dependent Async Methods
-  // --------------------------------------------------------------------------
-  
-  /**
-  @brief runs the given function asynchronously 
-         when the given predecessors finish
-
-  @tparam F callable type
-  @tparam Tasks task types convertible to tf::AsyncTask
-
-  @param func callable object
-  @param tasks asynchronous tasks on which this execution depends
-  
-  @return a tf::AsyncTask handle 
-  
-  This member function is more efficient than tf::Executor::dependent_async
-  and is encouraged to use when you do not want a @std_future to
-  acquire the result or synchronize the execution.
-  The example below creates three asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-
-  @code{.cpp}
-  tf::AsyncTask A = executor.silent_dependent_async([](){ printf("A\n"); });
-  tf::AsyncTask B = executor.silent_dependent_async([](){ printf("B\n"); });
-  executor.silent_dependent_async([](){ printf("C runs after A and B\n"); }, A, B);
-  executor.wait_for_all();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename F, typename... Tasks,
     std::enable_if_t<all_same_v<AsyncTask, std::decay_t<Tasks>...>, void>* = nullptr
   >
   tf::AsyncTask silent_dependent_async(F&& func, Tasks&&... tasks);
   
-  /**
-  @brief runs the given function asynchronously 
-         when the given predecessors finish
-  
-  @tparam F callable type
-  @tparam Tasks task types convertible to tf::AsyncTask
-
-  @param params task parameters
-  @param func callable object
-  @param tasks asynchronous tasks on which this execution depends
-  
-  @return a tf::AsyncTask handle 
-  
-  This member function is more efficient than tf::Executor::dependent_async
-  and is encouraged to use when you do not want a @std_future to
-  acquire the result or synchronize the execution.
-  The example below creates three asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-  Assigned task names will appear in the observers of the executor.
-
-  @code{.cpp}
-  tf::AsyncTask A = executor.silent_dependent_async("A", [](){ printf("A\n"); });
-  tf::AsyncTask B = executor.silent_dependent_async("B", [](){ printf("B\n"); });
-  executor.silent_dependent_async(
-    "C", [](){ printf("C runs after A and B\n"); }, A, B
-  );
-  executor.wait_for_all();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename P, typename F, typename... Tasks,
     std::enable_if_t<is_task_params_v<P> && all_same_v<AsyncTask, std::decay_t<Tasks>...>, void>* = nullptr
   >
   tf::AsyncTask silent_dependent_async(P&& params, F&& func, Tasks&&... tasks);
   
-  /**
-  @brief runs the given function asynchronously 
-         when the given range of predecessors finish
-  
-  @tparam F callable type
-  @tparam I iterator type 
-
-  @param func callable object
-  @param first iterator to the beginning (inclusive)
-  @param last iterator to the end (exclusive)
-  
-  @return a tf::AsyncTask handle 
-  
-  This member function is more efficient than tf::Executor::dependent_async
-  and is encouraged to use when you do not want a @std_future to
-  acquire the result or synchronize the execution.
-  The example below creates three asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-
-  @code{.cpp}
-  std::array<tf::AsyncTask, 2> array {
-    executor.silent_dependent_async([](){ printf("A\n"); }),
-    executor.silent_dependent_async([](){ printf("B\n"); })
-  };
-  executor.silent_dependent_async(
-    [](){ printf("C runs after A and B\n"); }, array.begin(), array.end()
-  );
-  executor.wait_for_all();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename F, typename I, 
     std::enable_if_t<!std::is_same_v<std::decay_t<I>, AsyncTask>, void>* = nullptr
   >
   tf::AsyncTask silent_dependent_async(F&& func, I first, I last);
   
-  /**
-  @brief runs the given function asynchronously 
-         when the given range of predecessors finish
-  
-  @tparam F callable type
-  @tparam I iterator type 
-
-  @param params tasks parameters
-  @param func callable object
-  @param first iterator to the beginning (inclusive)
-  @param last iterator to the end (exclusive)
-
-  @return a tf::AsyncTask handle 
-  
-  This member function is more efficient than tf::Executor::dependent_async
-  and is encouraged to use when you do not want a @std_future to
-  acquire the result or synchronize the execution.
-  The example below creates three asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-  Assigned task names will appear in the observers of the executor.
-
-  @code{.cpp}
-  std::array<tf::AsyncTask, 2> array {
-    executor.silent_dependent_async("A", [](){ printf("A\n"); }),
-    executor.silent_dependent_async("B", [](){ printf("B\n"); })
-  };
-  executor.silent_dependent_async(
-    "C", [](){ printf("C runs after A and B\n"); }, array.begin(), array.end()
-  );
-  executor.wait_for_all();
-  @endcode
-
-  This member function is thread-safe.
-  */
   template <typename P, typename F, typename I, 
     std::enable_if_t<is_task_params_v<P> && !std::is_same_v<std::decay_t<I>, AsyncTask>, void>* = nullptr
   >
@@ -864,183 +149,21 @@ class Executor {
   // Dependent Async Methods
   // --------------------------------------------------------------------------
   
-  /**
-  @brief runs the given function asynchronously 
-         when the given predecessors finish
-  
-  @tparam F callable type
-  @tparam Tasks task types convertible to tf::AsyncTask
-
-  @param func callable object
-  @param tasks asynchronous tasks on which this execution depends
-  
-  @return a pair of a tf::AsyncTask handle and 
-                    a @std_future that holds the result of the execution
-  
-  The example below creates three asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-  Task @c C returns a pair of its tf::AsyncTask handle and a std::future<int>
-  that eventually will hold the result of the execution.
-
-  @code{.cpp}
-  tf::AsyncTask A = executor.silent_dependent_async([](){ printf("A\n"); });
-  tf::AsyncTask B = executor.silent_dependent_async([](){ printf("B\n"); });
-  auto [C, fuC] = executor.dependent_async(
-    [](){ 
-      printf("C runs after A and B\n"); 
-      return 1;
-    }, 
-    A, B
-  );
-  fuC.get();  // C finishes, which in turns means both A and B finish
-  @endcode
-
-  You can mixed the use of tf::AsyncTask handles 
-  returned by Executor::dependent_async and Executor::silent_dependent_async
-  when specifying task dependencies.
-
-  This member function is thread-safe.
-  */
   template <typename F, typename... Tasks,
     std::enable_if_t<all_same_v<AsyncTask, std::decay_t<Tasks>...>, void>* = nullptr
   >
   auto dependent_async(F&& func, Tasks&&... tasks);
   
-  /**
-  @brief runs the given function asynchronously
-         when the given predecessors finish
-  
-  @tparam P task parameters type
-  @tparam F callable type
-  @tparam Tasks task types convertible to tf::AsyncTask
-  
-  @param params task parameters
-  @param func callable object
-  @param tasks asynchronous tasks on which this execution depends
-  
-  @return a pair of a tf::AsyncTask handle and 
-                    a @std_future that holds the result of the execution
-  
-  The example below creates three named asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-  Task @c C returns a pair of its tf::AsyncTask handle and a std::future<int>
-  that eventually will hold the result of the execution.
-  Assigned task names will appear in the observers of the executor.
-
-  @code{.cpp}
-  tf::AsyncTask A = executor.silent_dependent_async("A", [](){ printf("A\n"); });
-  tf::AsyncTask B = executor.silent_dependent_async("B", [](){ printf("B\n"); });
-  auto [C, fuC] = executor.dependent_async(
-    "C",
-    [](){ 
-      printf("C runs after A and B\n"); 
-      return 1;
-    }, 
-    A, B
-  );
-  assert(fuC.get()==1);  // C finishes, which in turns means both A and B finish
-  @endcode
-
-  You can mixed the use of tf::AsyncTask handles 
-  returned by Executor::dependent_async and Executor::silent_dependent_async
-  when specifying task dependencies.
-
-  This member function is thread-safe.
-  */
   template <typename P, typename F, typename... Tasks,
     std::enable_if_t<is_task_params_v<P> && all_same_v<AsyncTask, std::decay_t<Tasks>...>, void>* = nullptr
   >
   auto dependent_async(P&& params, F&& func, Tasks&&... tasks);
   
-  /**
-  @brief runs the given function asynchronously 
-         when the given range of predecessors finish
-  
-  @tparam F callable type
-  @tparam I iterator type 
-
-  @param func callable object
-  @param first iterator to the beginning (inclusive)
-  @param last iterator to the end (exclusive)
-  
-  @return a pair of a tf::AsyncTask handle and 
-                    a @std_future that holds the result of the execution
-  
-  The example below creates three asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-  Task @c C returns a pair of its tf::AsyncTask handle and a std::future<int>
-  that eventually will hold the result of the execution.
-
-  @code{.cpp}
-  std::array<tf::AsyncTask, 2> array {
-    executor.silent_dependent_async([](){ printf("A\n"); }),
-    executor.silent_dependent_async([](){ printf("B\n"); })
-  };
-  auto [C, fuC] = executor.dependent_async(
-    [](){ 
-      printf("C runs after A and B\n"); 
-      return 1;
-    }, 
-    array.begin(), array.end()
-  );
-  assert(fuC.get()==1);  // C finishes, which in turns means both A and B finish
-  @endcode
-
-  You can mixed the use of tf::AsyncTask handles 
-  returned by Executor::dependent_async and Executor::silent_dependent_async
-  when specifying task dependencies.
-
-  This member function is thread-safe.
-  */
   template <typename F, typename I,
     std::enable_if_t<!std::is_same_v<std::decay_t<I>, AsyncTask>, void>* = nullptr
   >
   auto dependent_async(F&& func, I first, I last);
   
-  /**
-  @brief runs the given function asynchronously 
-         when the given range of predecessors finish
-  
-  @tparam P task parameters type
-  @tparam F callable type
-  @tparam I iterator type 
-  
-  @param params task parameters
-  @param func callable object
-  @param first iterator to the beginning (inclusive)
-  @param last iterator to the end (exclusive)
-  
-  @return a pair of a tf::AsyncTask handle and 
-                    a @std_future that holds the result of the execution
-  
-  The example below creates three named asynchronous tasks, @c A, @c B, and @c C,
-  in which task @c C runs after task @c A and task @c B.
-  Task @c C returns a pair of its tf::AsyncTask handle and a std::future<int>
-  that eventually will hold the result of the execution.
-  Assigned task names will appear in the observers of the executor.
-
-  @code{.cpp}
-  std::array<tf::AsyncTask, 2> array {
-    executor.silent_dependent_async("A", [](){ printf("A\n"); }),
-    executor.silent_dependent_async("B", [](){ printf("B\n"); })
-  };
-  auto [C, fuC] = executor.dependent_async(
-    "C",
-    [](){ 
-      printf("C runs after A and B\n"); 
-      return 1;
-    }, 
-    array.begin(), array.end()
-  );
-  assert(fuC.get()==1);  // C finishes, which in turns means both A and B finish
-  @endcode
-
-  You can mixed the use of tf::AsyncTask handles 
-  returned by Executor::dependent_async and Executor::silent_dependent_async
-  when specifying task dependencies.
-
-  This member function is thread-safe.
-  */
   template <typename P, typename F, typename I,
     std::enable_if_t<is_task_params_v<P> && !std::is_same_v<std::decay_t<I>, AsyncTask>, void>* = nullptr
   >
@@ -1227,6 +350,7 @@ inline void Executor::_spawn(size_t N) {
         std::hash<std::thread::id>()(std::this_thread::get_id()))
       );
       //w._udist = std::uniform_int_distribution<size_t>(0, _workers.size() - 1);
+      // 如果distribution(0, 10)是生成整数0,1,2,..10一直到10都会生成  会包括右边界10,  但是这里是-2不应该是-1吗
       w._udist = std::uniform_int_distribution<size_t>(0, _workers.size() + _buffers.size() - 2);
 
       // before entering the work-stealing loop, call the scheduler prologue
@@ -1245,7 +369,7 @@ inline void Executor::_spawn(size_t N) {
         // worker loop
         while(1) {
 
-          // drain out the local queue
+          // drain out the local queue 清空本地队列
           _exploit_task(w, t);
 
           // steal and wait for tasks
@@ -2274,9 +1398,4 @@ inline void Subflow::join() {
 
 
 }  // end of namespace tf -----------------------------------------------------
-
-
-
-
-
 

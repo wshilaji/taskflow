@@ -61,6 +61,7 @@ inline void AtomicNotifierV1::notify_one() noexcept {
 }
 
 inline void AtomicNotifierV1::notify_all() noexcept {
+    // fetch_add 方法返回旧的值
   uint64_t prev = _state.fetch_add(EPOCH_INC, std::memory_order_acq_rel);
   if(TF_UNLIKELY(prev & WAITER_MASK))  { // has waiter (typically unlikely)
     _state.notify_all();
@@ -97,14 +98,19 @@ inline void AtomicNotifierV1::cancel_wait(Waiter*) noexcept {
 inline void AtomicNotifierV1::commit_wait(Waiter* waiter) noexcept {
   uint64_t prev = _state.load(std::memory_order_acquire);
   while((prev >> EPOCH_SHIFT) == waiter->epoch) {
-    _state.wait(prev, std::memory_order_acquire); 
+      // 当state 与prev不同时唤醒   cv.wait(lock) 
+    _state.wait(prev, std::memory_order_acquire); //dysNote 原子等待cpp20新特性. wait(prev)当prev发生变化唤醒 不会自动唤醒等待的线程 
     prev = _state.load(std::memory_order_acquire);
   }
+  // while(!ready) {cv.wait(lock),}
   // memory_order_relaxed would suffice for correctness, but the faster
   // #waiters gets to 0, the less likely it is that we'll do spurious wakeups
   // (and thus system calls)
   _state.fetch_sub(WAITER_INC, std::memory_order_seq_cst);
 }
+//该循环检查当前的状态是否与等待者的纪元（epoch）相同。如果相同，表示等待者需要继续等待。
+//调用 _state.wait(prev, std::memory_order_acquire) 将当前线程阻塞，直到 _state 的值发生变化。
+///一旦被唤醒，重新加载 _state 的值以获取最新状态。
 
 //-----------------------------------------------------------------------------
 
@@ -224,3 +230,27 @@ inline void AtomicNotifierV2::commit_wait(Waiter* waiter) noexcept {
 } // namespace taskflow -------------------------------------------------------
 
 #endif
+/*
+std::atomic<bool> x = {false};
+std::atomic<bool> y = {false};
+std::atomic<int> z = {0};
+void write_x() {
+    x.store(true, std::memory_order_seq_cst);
+}
+void write_y() {
+    y.store(true, std::memory_order_seq_cst);
+}
+void read_x_then_y() {
+    while (!x.load(std::memory_order_seq_cst)) {}
+    if (y.load(std::memory_order_seq_cst)) ++z;
+}
+void read_y_then_x() {
+    while (!y.load(std::memory_order_seq_cst)) {}
+    if (x.load(std::memory_order_seq_cst)) ++z;
+}
+// 注意是所有线程看到的  注意所有线程看到的原子操作的的执行顺序是相同的 顺序可能如下 有z = 1或者z = 2的情况 
+std::thread a(write_x);
+std::thread b(write_y);
+std::thread c(read_x_then_y);
+std::thread d(read_y_then_x);
+ * */

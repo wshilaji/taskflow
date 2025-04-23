@@ -259,7 +259,7 @@ class WorkerInterface {
   @brief method to call before a worker enters the scheduling loop
   @param worker a reference to the worker
 
-  The method is called by the constructor of an executor.
+  The method is called by the constructor of an executor.  序言 开始前
   */
   virtual void scheduler_prologue(Worker& worker) = 0;
 
@@ -268,7 +268,7 @@ class WorkerInterface {
   @param worker a reference to the worker
   @param ptr an pointer to the exception thrown by the scheduling loop
 
-  The method is called by the constructor of an executor.
+  The method is called by the constructor of an executor. //结语 结束后
   */
   virtual void scheduler_epilogue(Worker& worker, std::exception_ptr ptr) = 0;
 
@@ -282,6 +282,7 @@ class WorkerInterface {
 
 @param args arguments to forward to the constructor of @c T
 */
+// dysNote 见examples 里面 worker_interface.cpp 
 template <typename T, typename... ArgsT>
 std::unique_ptr<T> make_worker_interface(ArgsT&&... args) {
   static_assert(
