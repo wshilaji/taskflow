@@ -110,7 +110,7 @@ class Worker {
 
     TF_FORCE_INLINE size_t _rdvtm() {
       auto r = _udist(_rdgen);
-      return r + (r >= _id);
+      return r + (r >= _id); // dysNote这里注意下。 这里是r+1因为当(r>= _id) 这是个表达式 所以是+1 或+0
     }
 
 };

@@ -201,8 +201,8 @@ class Executor {
   void _schedule(Worker&, Node*);
   void _schedule(Node*);
   void _set_up_topology(Worker*, Topology*);
-  void _tear_down_topology(Worker&, Topology*);
-  void _tear_down_async(Worker&, Node*, Node*&);
+  void _tear_down_topology(Worker&, Topology*); // 拆除拓扑
+  void _tear_down_async(Worker&, Node*, Node*&); // tear down 拆除
   void _tear_down_dependent_async(Worker&, Node*, Node*&);
   void _tear_down_invoke(Worker&, Node*, Node*&);
   void _increment_topology();
@@ -322,8 +322,10 @@ inline size_t Executor::num_taskflows() const {
 
 // Function: this_worker_id
 inline int Executor::this_worker_id() const {
+    // dysNote 注意在主进程里面 tf.Executor executor; 里面这个this_worker 也是有的， 这个是thread_local 但是没有初始化是nullptr
   auto w = pt::this_worker;
   return (w && w->_executor == this) ? static_cast<int>(w->_id) : -1;
+  // 如果是在其他线程pt::this_worker = &w; _worker[id]._executor == this; 然后如果_worker[id]._executor->this_worker_id()就是线程id
 }
 
 // Procedure: _spawn
@@ -447,11 +449,14 @@ inline bool Executor::_explore_task(Worker& w, Node*& t) {
   while(true) {
     // If the worker's victim thread (w._vtm) is within the worker pool, steal from the worker's queue.
     // Otherwise, steal from the buffer, adjusting the victim index based on the worker pool size.
+    //
+    // //t = (w._id == w._vtm) ? _freelist.steal(w._id) : _workers[w._vtm]._wsq.steal(); // 老版本2
+    // 第一轮的时候 vtm = id 从0->N 所以第一轮都没任务的时候只会超下一个queue找。 worker[vtm].wsq ||  buffer[vtm].wsq
     t = (w._vtm < _workers.size())
       ? _workers[w._vtm]._wsq.steal_with_hint(num_empty_steals)
       : _buffers.steal_with_hint(w._vtm - _workers.size(), num_empty_steals);
 
-    if(t) {
+    if(t) { //  dysNote 只有找到task才停止 第一轮从别的worker都会找不到。然后朝下执行 重算vtm 估计一直到FreeList buffer里面找到task 然后所有线程worker里面的vtm都打散
       break;
     }
 
@@ -469,11 +474,14 @@ inline bool Executor::_explore_task(Worker& w, Node*& t) {
   #else
     if(w._done.load(std::memory_order_relaxed)) {
   #endif
-      return false;
+      return false; // 仅仅在.done为true的时候返回false
     } 
     
     // Randomely generate a next victim.
-    w._vtm = w._rdvtm();
+    w._vtm = w._rdvtm(); //负载均衡用的？ dysNote 注意这里解释了为什么 
+        // 是 -2 ，这里w._udist = std::uniform_int_distribution<size_t>(0, _workers.size() + _buffers.size() - 2);
+        // 假设work_size + que.size 是10 ， 这个时候随机桶范围是<0,..7,8>左右边界都能取到 ， 会觉得这么不是少了个下标9吗
+        // 是因为_rdvtm()函数会 + 1 所以当时揉到8时候。会+1到9 。之所以这样是rdvtm为了避开揉到自己本身id
   } 
 
   return true;
@@ -687,13 +695,13 @@ inline void Executor::_invoke(Worker& worker, Node* node) {
   Node* cache {nullptr};
   
   // if this is the second invoke due to preemption, directly jump to invoke task
-  if(node->_nstate & NSTATE::PREEMPTED) {
+  if(node->_nstate & NSTATE::PREEMPTED) { // 如果是抢占
     goto invoke_task;
   }
 
   // if the work has been cancelled, there is no need to continue
   if(node->_is_cancelled()) {
-    _tear_down_invoke(worker, node, cache);
+    _tear_down_invoke(worker, node, cache); // tear down拆除
     TF_INVOKE_CONTINUATION();
     return;
   }
@@ -803,10 +811,21 @@ inline void Executor::_invoke(Worker& worker, Node* node) {
   auto& join_counter = (node->_parent) ? node->_parent->_join_counter :
                        node->_topology->_join_counter;
 
+  //执行完工作函数后，如果是静态节点，将其后继节点的强依赖数减一，如果减到了0， 
+  //则将该节点加入就绪队列，并将拓扑的join_counter加一；如果该节点是条件节点，直接将其后继节点加入就绪队列，并将拓扑的join_counter加一。
+  //最后，在_tear_down_invoke函数中将topology->_join_counter减一(因为本次Executor::_invoke消耗了一个就绪节点)，如果减到0，则发出整个taskflow已经执行完毕的通知。
   // Invoke the task based on the corresponding type
   switch(node->_handle.index()) {
 
     // condition and multi-condition tasks
+    // A ----> B
+    //   |---> C
+    //   |---> D // return {0, 1, 2} //注意返回的是结点的标号
+    //
+    //   a -0-> d
+    //     -1-> e 
+    //  b -> e // b , c 强依赖e 只有b.c都执行完。才能执行e。  弱依赖a若条件1  执行e  也就是说一个节点在一次拓扑执行过程中是可以被重复多次触发的。
+    //  c->e 
     case Node::CONDITION:
     case Node::MULTI_CONDITION: {
       for(auto cond : conds) {
@@ -815,7 +834,7 @@ inline void Executor::_invoke(Worker& worker, Node* node) {
           // zeroing the join counter for invariant
           s->_join_counter.store(0, std::memory_order_relaxed);
           join_counter.fetch_add(1, std::memory_order_relaxed);
-          _update_cache(worker, cache, s);
+          _update_cache(worker, cache, s); // 老版本_schedule(worker, s);
         }
       }
     }
@@ -825,9 +844,9 @@ inline void Executor::_invoke(Worker& worker, Node* node) {
     default: {
       for(size_t i=0; i<node->_num_successors; ++i) {
         //if(auto s = node->_successors[i]; --(s->_join_counter) == 0) {
-        if(auto s = node->_edges[i]; s->_join_counter.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+        if(auto s = node->_edges[i]; s->_join_counter.fetch_sub(1, std::memory_order_acq_rel) == 1) { // ==1 是fetch_sub成功返回的老val所以这里是==0
           join_counter.fetch_add(1, std::memory_order_relaxed);
-          _update_cache(worker, cache, s);
+          _update_cache(worker, cache, s); // 老版本_schedule(worker, s);
         }
       }
     }
@@ -844,7 +863,7 @@ inline void Executor::_tear_down_invoke(Worker& worker, Node* node, Node*& cache
   
   // we must check parent first before subtracting the join counter,
   // or it can introduce data race
-  if(auto parent = node->_parent; parent == nullptr) {
+  if(auto parent = node->_parent; parent == nullptr) { // 注意这里是==  如果这里是parent不存在
     if(node->_topology->_join_counter.fetch_sub(1, std::memory_order_acq_rel) == 1) {
       _tear_down_topology(worker, node->_topology);
     }
@@ -1138,7 +1157,7 @@ tf::Future<void> Executor::run_until(Taskflow&& f, P&& pred) {
 
 // Function: run_until
 template <typename P, typename C>
-tf::Future<void> Executor::run_until(Taskflow& f, P&& p, C&& c) {
+tf::Future<void> Executor::run_until(Taskflow& f, P&& p, C&& c) { // callable C是执行完之后运行的 pred  条件
 
   _increment_topology();
 
@@ -1159,7 +1178,7 @@ tf::Future<void> Executor::run_until(Taskflow& f, P&& p, C&& c) {
     return tf::Future<void>(promise.get_future());
   }
 
-  // create a topology for this run
+  // 创建 Topology 这个Topology 初始化时候还塞了taskflow真的是各种依赖
   auto t = std::make_shared<Topology>(f, std::forward<P>(p), std::forward<C>(c));
 
   // need to create future before the topology got torn down quickly
@@ -1217,7 +1236,7 @@ void Executor::corun_until(P&& predicate) {
   _corun_until(*pt::this_worker, std::forward<P>(predicate));
 }
 
-// Procedure: _corun_graph
+// Procedure: _corun_graph //  是这个缩写吗 dysNote std::coroutine_handle cpp20携程 协同程序
 template <typename I>
 void Executor::_corun_graph(Worker& w, Node* p, I first, I last) {
 
@@ -1286,13 +1305,13 @@ inline void Executor::_set_up_topology(Worker* w, Topology* tpg) {
   auto send = _set_up_graph(g.begin(), g.end(), tpg, nullptr);
   tpg->_join_counter.store(send - g.begin(), std::memory_order_relaxed);
 
-  w ? _schedule(*w, g.begin(), send) : _schedule(g.begin(), send);
+  w ? _schedule(*w, g.begin(), send) : _schedule(g.begin(), send); //一开始主线程 没有worker 只会执后面这个, 将拓扑的起始节点加入本地就绪队列 
 }
 
 // Function: _set_up_graph
 template <typename I>
 I Executor::_set_up_graph(I first, I last, Topology* tpg, Node* parent) {
-
+    // dysNote 注 task. emplace的时候只塞了Node的部分字段。 其他topology 在这里塞
   auto send = first;
   for(; first != last; ++first) {
 
@@ -1306,7 +1325,7 @@ I Executor::_set_up_graph(I first, I last, Topology* tpg, Node* parent) {
 
     // move source to the first partition
     // root, root, root, v1, v2, v3, v4, ...
-    if(node->num_predecessors() == 0) {
+    if(node->num_predecessors() == 0) { //如果没有前驱结点 移到最前面
       std::iter_swap(send++, first);
     }
   }

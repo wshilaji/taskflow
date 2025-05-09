@@ -30,7 +30,7 @@ class Topology {
 
     Taskflow& _taskflow;
 
-    std::promise<void> _promise;
+    std::promise<void> _promise; //这里塞了个promise 
     
     std::function<bool()> _pred;
     std::function<void()> _call;

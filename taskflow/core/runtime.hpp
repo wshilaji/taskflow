@@ -345,7 +345,7 @@ inline Worker& Runtime::worker() {
 }
 
 // Procedure: schedule
-inline void Runtime::schedule(Task task) {
+inline void Runtime::schedule(Task task) { 
   
   auto node = task._node;
   // need to keep the invariant: when scheduling a task, the task must have

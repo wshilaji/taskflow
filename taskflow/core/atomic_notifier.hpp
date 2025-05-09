@@ -94,7 +94,7 @@ inline void AtomicNotifierV1::cancel_wait(Waiter*) noexcept {
   // (and thus system calls).
   _state.fetch_sub(WAITER_INC, std::memory_order_seq_cst);
 }
-
+// 如果线程A B C, AB先commit 然后主线程notify  ,. C在commit 就会一直等待吧1 
 inline void AtomicNotifierV1::commit_wait(Waiter* waiter) noexcept {
   uint64_t prev = _state.load(std::memory_order_acquire);
   while((prev >> EPOCH_SHIFT) == waiter->epoch) {

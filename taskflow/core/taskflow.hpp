@@ -293,7 +293,7 @@ class Taskflow : public FlowBuilder {
     Graph _graph;
 
     std::queue<std::shared_ptr<Topology>> _topologies;
-    std::optional<std::list<Taskflow>::iterator> _satellite;
+    std::optional<std::list<Taskflow>::iterator> _satellite; //人造卫星的英文
 
     void _dump(std::ostream&, const Graph*) const;
     void _dump(std::ostream&, const Node*, Dumper&) const;
@@ -639,6 +639,51 @@ bool Future<T>::cancel() {
   }
   return false;
 }
+/*
+ *int asyncTask(int x) {
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // 模拟长时间运行的任务
+    return x * x; // 返回平方
+main : 
+    // 启动异步任务
+    std::future<int> result = std::async(std::launch::async, asyncTask, 5);
+    std::cout << "Doing other work while waiting for the result...\n";
+    // 等待结果并获取
+    int value = result.get(); // 这会阻塞直到任务完成
+
+    future都是需要几个固定的异步线程调用方式，比如async这种，
+    但是很多时候不喜欢用这种异步方式，那么自然也就没办法获取future，所以为了future的获取更加灵活方便，就需要有这个promise对象。
+promise demo API : 就与std::async不用绑定了。 下面都是直接thread 
+主线程通知子线程
+func : print_int (std::future<int>& fut) {
+  cout<<"child thread  print_int"<<endl;
+  int x = fut.get();
+  std::cout << "value: " << x << '\n';
+main : 
+  std::promise<int> prom;                      // create promise
+  std::future<int> fut = prom.get_future();    // engagement with future
+  std::thread th1 (print_int, std::ref(fut));  // send future to new thread
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  cout<<"main thread  prom.set_value (10)"<<endl;
+  prom.set_value (10);
+  th1.join();}
+  执行结果 child thread  print_int 
+           main thread  prom.set_value (10) 
+           value: 10
+
+// 子线程通知主线程
+func:  asyncTask(std::promise<int> &&p) {
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // 模拟长时间运行的任务
+    p.set_value(42); // 设置结果
+main: 
+    // 创建 promise 和对应的 future
+    std::promise<int> promise;
+    std::future<int> future = promise.get_future();
+    // 启动异步任务
+    std::thread t(asyncTask, std::move(promise));
+    std::cout << "Doing other work while waiting for the result...\n";
+    // 等待结果并获取
+    int value = future.get(); // 这会阻塞直到任务完成
+ * */
 
 
 }  // end of namespace tf. ---------------------------------------------------

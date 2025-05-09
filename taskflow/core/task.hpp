@@ -129,7 +129,14 @@ constexpr bool is_static_task_v = std::is_invocable_r_v<void, C> &&
 A runtime task is a callable object constructible from std::function<void(tf::Runtime&)>.
 */
 template <typename C>
-constexpr bool is_runtime_task_v = std::is_invocable_r_v<void, C, Runtime&>;
+constexpr bool is_runtime_task_v = std::is_invocable_r_v<void, C, Runtime&>; //返回类型是void . 
+                                                                             /*
+                                                                            这种都是塞入的一个Runtime类型
+                                                    tf.emplace( [&C] (tf::Runtime& rt) {  // C must be captured by reference
+                                                        std::cout << "B\n";
+                                                        rt.schedule(C);
+                                                      },
+                                                                                  * */
 
 // ----------------------------------------------------------------------------
 // Task

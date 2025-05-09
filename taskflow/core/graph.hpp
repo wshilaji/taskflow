@@ -292,8 +292,8 @@ class Node {
   Node(nstate_t, estate_t, const DefaultTaskParams&, Topology*, Node*, size_t, Args&&...);
 
 
-  size_t num_successors() const;
-  size_t num_predecessors() const;
+  size_t num_successors() const; // 后继
+  size_t num_predecessors() const; //前驱num
   size_t num_strong_dependencies() const;
   size_t num_weak_dependencies() const;
 
@@ -309,7 +309,7 @@ class Node {
   void* _data {nullptr};
   
   Topology* _topology {nullptr};
-  Node* _parent {nullptr};
+  Node* _parent {nullptr}; // Node* _parent {nullptr}; //subflow的父结点，可先忽略
 
   size_t _num_successors {0}; //继任者数量
   SmallVector<Node*, 4> _edges; // dysNote  这是边
@@ -499,7 +499,7 @@ v predecessor layout:
 inline void Node::_precede(Node* v) {
   _edges.push_back(v);
   std::swap(_edges[_num_successors++], _edges[_edges.size() - 1]);
-  v->_edges.push_back(this);
+  v->_edges.push_back(this); //对于v来说是依赖结点所以直接push_back就行
 }
 
 // Function: _remove_successors
@@ -568,6 +568,7 @@ inline bool Node::_is_cancelled() const {
   return (_topology && (_topology->_estate.load(std::memory_order_relaxed) & ESTATE::CANCELLED)) 
          ||
          (_parent && (_parent->_estate.load(std::memory_order_relaxed) & ESTATE::CANCELLED));
+  // dysNote parent 设置看着在Executor _schedule_graph_with_parent()
 }
 
 // Procedure: _set_up_join_counter

@@ -1281,7 +1281,7 @@ Task FlowBuilder::emplace(C&& c) {
 }
 
 // Function: emplace
-template <typename C, std::enable_if_t<is_condition_task_v<C>, void>*>
+template <typename C, std::enable_if_t<is_condition_task_v<C>, void>*> // is_condition_task_v = std::is_invocable_r_v<int, C>看着只有条件结点是int 其他都是void
 Task FlowBuilder::emplace(C&& c) {
   return Task(_graph._emplace_back(NSTATE::NONE, ESTATE::NONE, DefaultTaskParams{}, nullptr, nullptr, 0,
     std::in_place_type_t<Node::Condition>{}, std::forward<C>(c)

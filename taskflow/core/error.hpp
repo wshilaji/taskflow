@@ -14,7 +14,10 @@ struct NSTATE {
   using underlying_type = int;
 
   constexpr static underlying_type NONE           = 0x00000000;  
-  constexpr static underlying_type CONDITIONED    = 0x10000000;   // 表示处于条件状态
+  constexpr static underlying_type CONDITIONED    = 0x10000000;   // 表示处于条件状态   始终是高位不变 低位置+1
+                                                                  // nstate = (0 + 1) | 0x10000000 = 1 | 0x10000000 = 0x10000001
+                                                                  // nstate = (0x10000001 + 1) | 0x10000000 = 0x10000002 | 0x10000000 = 0x10000002
+                                                                  // nstate = (0x10000002 + 1) | 0x10000000 = 0x10000003 | 0x10000000 = 0x10000003
   constexpr static underlying_type PREEMPTED      = 0x20000000;  // 表示被抢占状态
   constexpr static underlying_type RETAIN_SUBFLOW = 0x40000000;  // 表示保持子流状态。
   constexpr static underlying_type JOINED_SUBFLOW = 0x80000000; // 表示已加入子流状态
