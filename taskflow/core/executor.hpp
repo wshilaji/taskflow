@@ -976,7 +976,7 @@ inline bool Executor::_invoke_subflow_task(Worker& worker, Node* node) {
   }
 
   // the subflow has finished or joined
-  if((node->_nstate & NSTATE::RETAIN_SUBFLOW) == 0) {
+  if((node->_nstate & NSTATE::RETAIN_SUBFLOW) == 0) { // 如果subflow没有retain则自动清掉当join后
     g.clear();
   }
 

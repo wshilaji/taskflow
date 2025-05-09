@@ -570,7 +570,7 @@ fu.get();
 @endcode
 */
 template <typename T>
-class Future : public std::future<T>  {
+class Future : public std::future<T>  { // future<T> 有wait和get方法
 
   friend class Executor;
   friend class Subflow;
