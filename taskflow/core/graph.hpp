@@ -314,7 +314,7 @@ class Node {
   size_t _num_successors {0}; //继任者数量
   SmallVector<Node*, 4> _edges; // dysNote  这是边
 
-  std::atomic<size_t> _join_counter {0};
+  std::atomic<size_t> _join_counter {0}; // 入度  如果是static结点入度为0 push到队列
   
   handle_t _handle;
   
@@ -598,8 +598,8 @@ inline bool Node::_acquire_all(SmallVector<Node*>& nodes) {
   auto& to_acquire = _semaphores->to_acquire;
   for(size_t i = 0; i < to_acquire.size(); ++i) {
     if(!to_acquire[i]->_try_acquire_or_wait(this)) {
-      for(size_t j = 1; j <= i; ++j) {
-        to_acquire[i-j]->_release(nodes);
+      for(size_t j = 1; j <= i; ++j) { // 这个for不用全部遍历 当上面try失败当时候return掉 . 
+        to_acquire[i-j]->_release(nodes); // 在i 之前当所有 信号量里面都waiters都挪到n
       }
       return false;
     }

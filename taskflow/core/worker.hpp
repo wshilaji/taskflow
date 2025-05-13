@@ -106,7 +106,7 @@ class Worker {
     std::default_random_engine _rdgen;
     std::uniform_int_distribution<size_t> _udist;
 
-    BoundedTaskQueue<Node*> _wsq;
+    BoundedTaskQueue<Node*> _wsq; //所以说这里是有界队列 。需要一个 waiter
 
     TF_FORCE_INLINE size_t _rdvtm() {
       auto r = _udist(_rdgen);

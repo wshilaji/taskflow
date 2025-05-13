@@ -188,7 +188,8 @@ class Executor {
   
   std::list<Taskflow> _taskflows;
 
-  Freelist<Node*> _buffers;
+  Freelist<Node*> _buffers; //只有这个是tsq无界
+                            //worker里面的wsq是有界的
 
   std::shared_ptr<WorkerInterface> _worker_interface;
   std::unordered_set<std::shared_ptr<ObserverInterface>> _observers;
@@ -372,7 +373,7 @@ inline void Executor::_spawn(size_t N) {
         while(1) {
 
           // drain out the local queue 清空本地队列
-          _exploit_task(w, t);
+          _exploit_task(w, t); //第一轮里面t是null所以走了wait_for_task  后面当worker当wsq队列有node先while执行自己队列不窃取
 
           // steal and wait for tasks
           if(_wait_for_task(w, t) == false) {
@@ -634,7 +635,7 @@ void Executor::_schedule(Worker& worker, I first, I last) {
   if(worker._executor == this) {
     for(size_t i=0; i<num_nodes; i++) {
       auto node = detail::get_node_ptr(first[i]);
-      worker._wsq.push(node, [&](){ _buffers.push(node); });
+      worker._wsq.push(node, [&](){ _buffers.push(node); }); // wsq满了。 onfull塞到buffers里面 freelist是无界的
       _notifier.notify_one();
     }
     return;

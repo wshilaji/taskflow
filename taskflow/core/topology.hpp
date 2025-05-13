@@ -35,7 +35,7 @@ class Topology {
     std::function<bool()> _pred;
     std::function<void()> _call;
 
-    std::atomic<size_t> _join_counter {0};
+    std::atomic<size_t> _join_counter {0};  // 一批node是同一个topology
     std::atomic<ESTATE::underlying_type> _estate {ESTATE::NONE};
 
     std::exception_ptr _exception_ptr {nullptr};

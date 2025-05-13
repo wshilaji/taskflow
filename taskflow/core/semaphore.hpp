@@ -120,7 +120,7 @@ class Semaphore {
     size_t _max_value{0};
     size_t _cur_value{0};
 
-    SmallVector<Node*> _waiters;
+    SmallVector<Node*> _waiters; // 信号量这居然有个Node
 
     bool _try_acquire_or_wait(Node*);
 
