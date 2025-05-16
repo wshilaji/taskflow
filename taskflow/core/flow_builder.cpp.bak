@@ -72,6 +72,18 @@ class FlowBuilder {
 
     template <typename T>
     inline constexpr bool is_protobuf_message_v = is_protobuf_message<T>::value;
+
+
+    std::false_type 是 std::integral_constant<bool, false> 的一个别名，表示一个具有 value 成员的类型，该成员总是 false。
+    #include <type_traits>
+        template <typename T>
+        struct is_custom_type : std::false_type {}; // 默认情况下，返回 false
+        // 特化
+        template <>
+        struct is_custom_type<int> : std::true_type {}; // int 是自定义类型
+        // 使用示例
+        static_assert(is_custom_type<int>::value, "int should be a custom type");
+        static_assert(!is_custom_type<double>::value, "double should not be a custom type");
    * */
 
   template <typename C, std::enable_if_t<is_static_task_v<C>, void>* = nullptr >
