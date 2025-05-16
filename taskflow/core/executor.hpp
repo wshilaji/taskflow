@@ -290,7 +290,7 @@ inline Executor::~Executor() {
   #endif
   }
 
-  _notifier.notify_all();
+  _notifier.notify_all(); //避免有线程死等
 
   for(auto& w : _workers) {
     w._thread.join();
@@ -554,7 +554,7 @@ inline bool Executor::_wait_for_task(Worker& w, Node*& t) {
   }
   
   // Now I really need to relinquish my self to others.
-  _notifier.commit_wait(w._waiter);
+  _notifier.commit_wait(w._waiter); //等着。 等wait唤醒
   goto explore_task;
 }
 

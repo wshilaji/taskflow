@@ -60,6 +60,18 @@ class FlowBuilder {
     }
     check_invocable<void(*)()>(); // 输出: C is not invocable or does not return int.
     check_invocable<decltype(func_with_return)>(); // 输出: C is invocable and returns int.
+                                                   //
+
+    模板：is_protobuf_message 是一个模板结构体，用于检测类型 T 是否是 google::protobuf::Message 的子类。
+    std::is_base_of：这是一个类型特征，检查 T 是否是 google::protobuf::Message 的派生类。如果是，则返回 true，否则返回 false。
+    std::integral_constant<bool, ...>：这个模板用于将结果封装为常量值，方便在编译时使用。
+    template <typename T>
+    struct is_protobuf_message
+        : std::integral_constant<bool,
+              std::is_base_of<google::protobuf::Message, T>::value> {};
+
+    template <typename T>
+    inline constexpr bool is_protobuf_message_v = is_protobuf_message<T>::value;
    * */
 
   template <typename C, std::enable_if_t<is_static_task_v<C>, void>* = nullptr >

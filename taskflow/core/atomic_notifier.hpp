@@ -94,6 +94,10 @@ inline void AtomicNotifierV1::cancel_wait(Waiter*) noexcept {
   // (and thus system calls).
   _state.fetch_sub(WAITER_INC, std::memory_order_seq_cst);
 }
+
+//dysNote 看着commit_wait 是多个task在prepare_wait  等待共用一个epoch 只是 wait++ 然后当epoch变化 所有的共用这个同一个epoch的waiter唤醒 不共用这同一个epoch的waiter不管
+//notify 一次加一次epoch版本
+
 // 如果线程A B C, AB先commit 然后主线程notify  ,. C在commit 就会一直等待吧1 
 inline void AtomicNotifierV1::commit_wait(Waiter* waiter) noexcept {
   uint64_t prev = _state.load(std::memory_order_acquire);
