@@ -39,6 +39,9 @@ When a worker completes an async task, it will remove the task from the executor
 decrementing the number of shared owners by one.
 If that counter reaches zero, the task is destroyed.
 */
+
+// ABA问题。 CAS 只是查看旧值是否一样 若 A转帐给B. A账户上有100，这时候在ATM1上卡了。去ATM2上转帐。
+// CAS(100, 0) ATM2转帐成功，A变成0， 之后C给转帐100成功 。这个时候ATM1不卡了。执行了CAS(100,0) ATM1转帐成功。然后C问A 看到钱了吗。
 class AsyncTask {
   
   friend class Executor;
@@ -135,7 +138,7 @@ inline void AsyncTask::_decref() {
   if(_node && std::get_if<Node::DependentAsync>(&(_node->_handle))->use_count.fetch_sub(
       1, std::memory_order_acq_rel
     ) == 1) {
-    recycle(_node);
+    recycle(_node); //减到1 delete
   }
 }
 

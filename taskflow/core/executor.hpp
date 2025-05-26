@@ -1199,17 +1199,17 @@ tf::Future<void> Executor::run_until(Taskflow& f, P&& p, C&& c) { // callable C�
 
 // Function: run_until
 template <typename P, typename C>
-tf::Future<void> Executor::run_until(Taskflow&& f, P&& pred, C&& c) {
+tf::Future<void> Executor::run_until(Taskflow&& f, P&& pred, C&& c) { //先运行的这个
 
   std::list<Taskflow>::iterator itr;
 
   {
     std::scoped_lock<std::mutex> lock(_taskflows_mutex);
-    itr = _taskflows.emplace(_taskflows.end(), std::move(f));
-    itr->_satellite = itr;
+    itr = _taskflows.emplace(_taskflows.end(), std::move(f)); //emplace 方法用于在指定位置插入新元素，并且返回一个指向新元素的迭代器。
+    itr->_satellite = itr;                                   // 第一个位置 参数位置  或使用std::next(myList.begin())等
   }
 
-  return run_until(*itr, std::forward<P>(pred), std::forward<C>(c));
+  return run_until(*itr, std::forward<P>(pred), std::forward<C>(c)); //然后运行的这个
 }
 
 // Function: corun

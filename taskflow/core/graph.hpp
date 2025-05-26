@@ -480,7 +480,7 @@ Node::Node(
   _estate       {estate},
   _topology     {topology},
   _parent       {parent},
-  _join_counter {join_counter},
+  _join_counter {join_counter}, //这个是Node上的入度 不是拓扑的入读
   _handle       {std::forward<Args>(args)...} {
 }
 

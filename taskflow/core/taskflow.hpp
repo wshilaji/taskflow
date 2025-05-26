@@ -294,6 +294,8 @@ class Taskflow : public FlowBuilder {
 
     std::queue<std::shared_ptr<Topology>> _topologies;
     std::optional<std::list<Taskflow>::iterator> _satellite; //人造卫星的英文
+    // std::optional C++17新特性 变成了java了是吧  可有可无的值 封装了指针行为的类型 但不是指针 
+    // std::optional 在栈上分配内存 更安全  std::nullopt; // 表示没有值
 
     void _dump(std::ostream&, const Graph*) const;
     void _dump(std::ostream&, const Node*, Dumper&) const;
