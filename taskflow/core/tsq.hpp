@@ -826,7 +826,7 @@ constexpr size_t BoundedTaskQueue<T, LogSize>::capacity() const {
 
 
 /*
- * template<typename T>
+  template<typename T>
 class BoundedBlockingQueue : boost::noncopyable
 {
 public:
@@ -896,5 +896,4 @@ private:
 	boost::circular_buffer<T>  queue_;
 };
 
-
- * /
+ */

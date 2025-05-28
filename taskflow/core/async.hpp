@@ -60,7 +60,15 @@ auto Executor::_async(P&& params, F&& f, Topology* tpg, Node* parent) {
 
     std::promise<void> p;
     auto fu{p.get_future()};
-    
+    // animate 是new Node . 这个async 的结点是new出来的。不同于直接emplacer是 std::make_unique
+    // MoC p(42);
+    //auto f = [](int x) { std::cout << "Function called with: " << x << std::endl; };
+    //auto lambda = [p_moved = MoC{std::move(p)}, f_for = std::forward<decltype(f)>(f)](int val) {
+    //    p_moved.show(); //p_move  f_for d都是新名字 。不需要写类型
+    //    f_for(val);
+    //};
+    //lambda(100); // 调用 lambda
+
     _schedule_async_task(animate(
       NSTATE::NONE, ESTATE::ANCHORED, std::forward<P>(params), tpg, parent, 0, 
       std::in_place_type_t<Node::Async>{}, 
