@@ -145,6 +145,7 @@ bool MPSCQueue<T, Alloc>::DequeueImpl(T* data) {
     }
     _cur_dequeue_node = node->next;
     _alloc.Free(old_node);
+    // Q ? 这里dequeue的时候 消费者线程head没有改  生产者线程在enque head 不是就坏掉了吗
 
     return true;
 }
@@ -159,6 +160,7 @@ void MPSCQueue<T, Alloc>::ReverseList(MPSCQueueNode<T>* old_head) {
         // No one added new requests.
         return;
     }
+    //CAS 失败时，`expected` 会被更新为当前值   CAS(expected, new)
     CHECK_NE(new_head, old_head);
     // Above acquire fence pairs release fence of exchange in Enqueue() to make
     // sure that we see all fields of requests set.

@@ -553,6 +553,12 @@ T BoundedTaskQueue<T, LogSize>::pop() {
           node->next, node, std::memory_order_release, std::memory_order_acquire))
         ;
         // 如果CAS失败，说明有其他线程在这个位置插入了新的节点 oldValue会变成新的head
+        // Note这种写法是CAS(node->next, node)
+    }
+    void pop(T& result) {
+        node* old_head=head.load();
+        while(!head.compare_exchange_weak(old_head,old_head->next));
+        result=old_head->data;
     }
    * */
 
