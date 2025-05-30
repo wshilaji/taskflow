@@ -516,7 +516,7 @@ inline bool Executor::_wait_for_task(Worker& w, Node*& t) {
   // Condition #1: buffers should be empty
   for(size_t vtm=0; vtm<_buffers.size(); ++vtm) {
     if(!_buffers._buckets[vtm].queue.empty()) {
-      w._vtm = vtm + _workers.size();
+      w._vtm = vtm + _workers.size(); //因为这里的 vtm是worker_size + buffers_size rand出来的 所以这里shi vtm+work_size
       _notifier.cancel_wait(w._waiter);
       goto explore_task;
     }
