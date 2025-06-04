@@ -1,0 +1,29 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@//.resources/rules:contrib/protobuf.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "proto",
+    srcs = glob(["*.proto"]),
+)
+
+cc_library(
+    name = "core",
+    srcs = glob(["*.cc"]),
+    hdrs = glob(["*.h"]),
+    deps = [
+        ":proto",
+        "@abseil-cpp//:hash",
+        "@abseil-cpp//:cleanup",
+        "@abseil-cpp//:container/flat_hash_map",
+        "@abseil-cpp//:container/flat_hash_set",
+        "@abseil-cpp//:types/span",
+        "@abseil-cpp//:strings",
+        "@abseil-cpp//:status",
+        "@abseil-cpp//:status/statusor",
+        "@abseil-cpp//:time",
+        "@fmt",
+        "@brpc//:butil",
+        "@brpc//:json2pb",
+    ],
+    visibility = ["//visibility:public"],
+)

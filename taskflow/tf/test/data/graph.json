@@ -1,0 +1,19 @@
+{
+  "node": [
+    {
+      "name": "a",
+      "op": "IncOp",
+      "input": [
+        "$input:input"
+      ]
+    },
+    {
+      "name": "output",
+      "op": "AddOp",
+      "input": [
+        "a:out",
+        "a:out"
+      ]
+    }
+  ]
+}

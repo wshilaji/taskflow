@@ -1,0 +1,52 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@//.resources/rules:contrib/protobuf.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "proto",
+    srcs = glob(["*.proto"]),
+)
+
+cc_library(
+    name = "taskflow",
+    srcs = glob(["*.cc"]),
+    hdrs = glob(["*.h"]),
+    deps = [
+        ":proto",
+        "//ecm/core",
+        "//ecm/metrics",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "taskflow_bthread",
+    srcs = glob(["bthread/*.cc"]),
+    hdrs = glob(["bthread/*.h"]),
+    deps = [
+        ":taskflow",
+        "@brpc//:bthread",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "taskflow_loader",
+    srcs = glob(["loader/*.cc"]),
+    hdrs = glob(["loader/*.h"]),
+    deps = [
+        ":taskflow",
+        ":taskflow_bthread",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "taskflow_ops",
+    srcs = glob(["ops/*.cc"]),
+    hdrs = glob(["ops/*.h"]),
+    deps = [
+        ":taskflow"
+    ],
+    visibility = ["//visibility:public"],
+    alwayslink = 1,
+)

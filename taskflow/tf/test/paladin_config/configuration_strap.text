@@ -1,0 +1,11 @@
+{
+    "files": {
+        "citadel": {
+            "path": "${CITADEL_CONF_PATH}"
+        },
+        "model_server_conf": {
+            "name": "model_server.conf",
+            "path": "${SERVER_CONF_PATH}"
+        }
+    }
+}

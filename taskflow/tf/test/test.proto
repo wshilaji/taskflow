@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package test;
+option cc_enable_arenas = true;
+
+message ScoreConf {
+  message MainFactor {
+    float w = 1;
+    float b = 2;
+    float a = 3;
+  }
+  MainFactor ctr_score_w = 1;
+  MainFactor duration_score_w = 2;
+  MainFactor hot_score_w = 3;
+  MainFactor ctr_index_w = 4;
+  MainFactor duration_index_w = 5;
+  MainFactor hot_index_w = 6;
+
+  float elaborate_factor = 101;
+  int32 elaborate_brush = 102;
+
+  float interested_factor = 111;
+
+  float followed_up_factor = 121;
+  int32 follow_up_lim = 122;
+
+  float gender_factor = 131;
+  float gender_thres = 132;
+  float timely_factor = 133;
+}

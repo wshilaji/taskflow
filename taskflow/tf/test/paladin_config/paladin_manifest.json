@@ -1,0 +1,44 @@
+{
+  "revision": 20565874,
+  "messages": [
+    {
+      "configs": [
+        {
+          "data_id": "model_server_conf",
+          "kind": "text",
+          "checksum": "81759f345205a78ebd93bf5d30f4598d",
+          "revision": 20565874,
+          "release_id": 281877
+        },
+        {
+          "data_id": "network_segments",
+          "kind": "text",
+          "checksum": "08284093f7ade9887b04bad4ad34948e",
+          "revision": 20565874,
+          "release_id": 281877
+        },
+        {
+          "data_id": "citadel",
+          "kind": "text",
+          "checksum": "a3ba30399011b0e26dc7aa182b300d62",
+          "revision": 20565874,
+          "release_id": 281877
+        },
+        {
+          "data_id": "configuration_strap",
+          "kind": "text",
+          "checksum": "e5f5b70db1ce9114e99575acc1f99229",
+          "revision": 20565874,
+          "release_id": 281877
+        },
+        {
+          "data_id": "demo",
+          "kind": "text",
+          "checksum": "6bb61e3b7bce0931da574d19d1d82c88",
+          "revision": 20565874,
+          "release_id": 281877
+        }
+      ]
+    }
+  ]
+}
