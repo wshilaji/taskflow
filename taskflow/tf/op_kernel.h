@@ -220,9 +220,9 @@ public:
                        name, ctx->node_def->name());
     }
     auto i = i_it - inputs_.begin();
-    auto &input_node = ctx->node_def->input(i);
-    auto d_it = ctx->session->data_map_.find(input_node);
-    if (d_it == ctx->session->data_map_.end()) {
+    auto &input_node = ctx->node_def->input(i); //dysNote 注意这里 只有output的data会落data_map 在exexecutor.cc里面初始化了一下
+    auto d_it = ctx->session->data_map_.find(input_node); // 比如rankOp的 kenel初始化的input是ctr, cvr 但是ops配的是predict:result_0,predict:result_1
+    if (d_it == ctx->session->data_map_.end()) {        // 那怎么映射上的呢。 是因为这里的下标input(i)  通过下标对应上的
       return ECM_ERROR(StatusCode::kNotFound, "input {} not found for node {}",
                        input_node, ctx->node_def->name());
     }
