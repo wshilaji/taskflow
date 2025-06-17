@@ -1,0 +1,21 @@
+digraph G {
+  rankdir=LR;
+  compound=true;
+  subgraph cluster_main_flow {
+    label="main_flow";
+    style=filled;
+    color=lightgrey;
+    "SubflowTask" [shape=box, style=filled, fillcolor=greenyellow];
+    "MainTask";
+  }
+  "SubflowTask" -> "MainTask";
+  subgraph cluster_subflow_of_SubflowTask {
+    label="subflow_of_SubflowTask";
+    style=filled;
+    color=lightgrey;
+    "SubflowTaskA";
+    "SubflowTaskB" [shape=box, style=filled, fillcolor=greenyellow];
+  }
+  "SubflowTaskB" -> "SubflowTaskA";
+  "SubflowTask" -> "SubflowTaskA" [lhead=cluster_subflow_of_SubflowTask];
+}

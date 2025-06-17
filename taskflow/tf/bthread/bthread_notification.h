@@ -4,9 +4,19 @@
 
 #include "bthread/condition_variable.h"
 #include "bthread/mutex.h"
-#include "ecm/taskflow/notification.h"
 
-namespace ecm::taskflow {
+namespace abel {
+struct Notification {
+  virtual ~Notification() {}
+
+  virtual Notification *New() = 0;
+
+  virtual void Wait() = 0;
+
+  virtual void Notify() = 0;
+
+  virtual bool HasBeenNotified() const = 0;
+};
 
 class BThreadNotification : public Notification {
 public:

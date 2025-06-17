@@ -1,0 +1,14 @@
+digraph G {
+  rankdir=LR;
+  "A" [shape=box, style=filled, fillcolor=greenyellow];
+  "B";
+  "Cond" [shape=diamond, style=filled, fillcolor=lightblue];
+  "C";
+  
+  "A" -> "B";
+  "A" -> "Cond";
+  "A" -> "C";
+  "B" -> "Cond";
+  "B" -> "C";
+  "Cond" -> "C" [style=dashed];
+}

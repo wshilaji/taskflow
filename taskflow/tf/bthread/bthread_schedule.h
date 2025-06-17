@@ -1,9 +1,16 @@
 #pragma once
 
 #include "bthread/bthread.h"
-#include "ecm/taskflow/schedule.h"
 
-namespace ecm::taskflow {
+namespace abel {
+class Schedule {
+public:
+  virtual ~Schedule() {}
+
+  virtual void Submit(std::function<void()> func) = 0;
+
+private:
+};
 
 class BThreadSchedule : public Schedule {
 public:

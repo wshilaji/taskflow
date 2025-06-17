@@ -1,0 +1,19 @@
+digraph G {
+  rankdir=LR;
+  compound=true;
+  subgraph cluster_TestFlow {
+    label="TestFlow";
+    style=filled;
+    color=lightgrey;
+    "A" [shape=box, style=filled, fillcolor=greenyellow];
+    "Cond" [shape=diamond, style=filled, fillcolor=lightblue];
+    "B";
+    "C";
+    "D";
+  }
+  "A" -> "Cond";
+  "Cond" -> "B" [style=dashed];
+  "Cond" -> "C" [style=dashed];
+  "C" -> "D";
+}
+
